@@ -1,7 +1,8 @@
 
-
 import streamlit as st
 import cv2
+import numpy as np
+import tempfile
 
 from detector import analizar_frame
 
@@ -27,8 +28,6 @@ if "next_pass" not in st.session_state:
 if "counter_attack" not in st.session_state:
     st.session_state.counter_attack = False
 
-
-
 st.title("⚽ Tactical AI Elite")
 
 
@@ -45,6 +44,15 @@ color_equipo2 = st.color_picker(
 )
 
 
+modo = st.selectbox(
+    "Modo",
+    [
+        "Video MP4",
+        "Camara"
+    ]
+)
+
+
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -57,6 +65,7 @@ with col2:
 
 with col3:
     if st.button("🔄 Reset"):
+
         st.session_state.running = False
 
         st.session_state.score_blue = 0
@@ -71,7 +80,6 @@ with col3:
         st.session_state.counter_attack = False
 
 
-
 st.subheader("⚽ Marcador")
 
 st.write(
@@ -81,7 +89,6 @@ st.write(
 st.write(
     f"🔴 Rojo: {st.session_state.score_red}"
 )
-
 
 
 st.subheader("📊 Posesión")
@@ -99,14 +106,12 @@ st.write(
 )
 
 
-
 st.subheader("🎯 xG tras pase")
 
 st.metric(
     "xG",
     st.session_state.xg_pass
 )
-
 
 
 st.subheader("🧠 Predicción siguiente pase")
@@ -120,7 +125,6 @@ if st.session_state.next_pass is not None:
 else:
 
     st.warning("Sin predicción")
-
 
 
 st.subheader("⚡ Contraataque")
@@ -137,27 +141,99 @@ else:
         "Juego normal"
     )
 
-
-
-video = st.file_uploader(
-    "Sube un partido",
-    type=["mp4"]
-)
-
 frame_box = st.empty()
 
 
+if modo == "Video MP4":
 
-if video is not None and st.session_state.running:
+    video = st.file_uploader(
+        "Sube un partido",
+        type=["mp4"]
+    )
 
-    cap = cv2.VideoCapture(video.name)
+    if (
+        video is not None
+        and st.session_state.running
+    ):
 
-    while cap.isOpened() and st.session_state.running:
+        tfile = tempfile.NamedTemporaryFile(
+            delete=False
+        )
 
-        ret, frame = cap.read()
+        tfile.write(video.read())
 
-        if not ret:
-            break
+        cap = cv2.VideoCapture(
+            tfile.name
+        )
+
+        while (
+            cap.isOpened()
+            and st.session_state.running
+        ):
+
+            ret, frame = cap.read()
+
+            if not ret:
+                break
+
+            resultado, eventos = analizar_frame(
+                frame,
+                color_equipo1,
+                color_equipo2
+            )
+
+            if eventos.get("gol_azul"):
+                st.session_state.score_blue += 1
+
+            if eventos.get("gol_rojo"):
+                st.session_state.score_red += 1
+
+            st.session_state.pos_blue = eventos.get(
+                "posesion_azul",
+                50
+            )
+
+            st.session_state.xg_pass = eventos.get(
+                "xg_pass",
+                0
+            )
+
+            st.session_state.next_pass = eventos.get(
+                "next_pass",
+                None
+            )
+
+            st.session_state.counter_attack = eventos.get(
+                "counter_attack",
+                False
+            )
+
+            frame_box.image(
+                resultado,
+                channels="BGR"
+            )
+
+
+if modo == "Camara":
+
+    camara = st.camera_input(
+        "Usa tu cámara"
+    )
+
+    if (
+        camara is not None
+        and st.session_state.running
+    ):
+
+        file_bytes = np.asarray(
+            bytearray(camara.read()),
+            dtype=np.uint8
+        )
+
+        frame = cv2.imdecode(
+            file_bytes,
+            1
+        )
 
         resultado, eventos = analizar_frame(
             frame,
@@ -165,32 +241,27 @@ if video is not None and st.session_state.running:
             color_equipo2
         )
 
-        
         if eventos.get("gol_azul"):
             st.session_state.score_blue += 1
 
         if eventos.get("gol_rojo"):
             st.session_state.score_red += 1
 
-        
         st.session_state.pos_blue = eventos.get(
             "posesion_azul",
             50
         )
 
-        
         st.session_state.xg_pass = eventos.get(
             "xg_pass",
             0
         )
 
-        
         st.session_state.next_pass = eventos.get(
             "next_pass",
             None
         )
 
-        
         st.session_state.counter_attack = eventos.get(
             "counter_attack",
             False
