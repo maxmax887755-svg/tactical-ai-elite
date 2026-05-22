@@ -1,43 +1,56 @@
 import numpy as np
 
-def predecir_jugada(
+def predecir_siguiente_pase(
     balon,
-    azules,
-    rojos
+    jugadores,
+    porteria_x
 ):
 
     if not balon:
-        return "Sin balon"
+        return None
 
-    bx,by = balon
+    bx, by = balon
 
-    cerca_azul = 0
-    cerca_rojo = 0
+    best = None
+    best_score = -999
 
-    for x,y in azules:
+    for i, (x, y) in enumerate(jugadores):
 
-        d = np.linalg.norm(
-            np.array([x,y]) -
-            np.array([bx,by])
+        dist = np.linalg.norm([
+            bx - x,
+            by - y
+        ])
+
+        progreso = x / porteria_x
+
+        score = (
+            (1 / (dist + 1))
+            + progreso
         )
 
-        if d < 150:
-            cerca_azul += 1
+        if score > best_score:
 
-    for x,y in rojos:
+            best_score = score
+            best = i
 
-        d = np.linalg.norm(
-            np.array([x,y]) -
-            np.array([bx,by])
-        )
+    return best
 
-        if d < 150:
-            cerca_rojo += 1
 
-    if cerca_azul >= 3:
-        return "Azul ataca"
+def detectar_contraataque(
+    balon_actual,
+    balon_anterior,
+    ancho
+):
 
-    if cerca_rojo >= 3:
-        return "Rojo ataca"
+    if not balon_actual or not balon_anterior:
+        return False
 
-    return "Juego equilibrado"
+    x1, y1 = balon_anterior
+    x2, y2 = balon_actual
+
+    avance = x2 - x1
+
+    if avance > ancho * 0.15:
+        return True
+
+    return False
