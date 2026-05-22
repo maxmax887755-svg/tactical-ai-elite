@@ -1,27 +1,36 @@
+
+
 import numpy as np
 
-def calcular_xg(
-    balon,
+def prob_gol_tras_pase(
+    tipo,
+    x,
+    y,
     ancho,
     alto
 ):
 
-    if not balon:
-        return 0
-
-    bx,by = balon
-
-    porteria_x = ancho
-    porteria_y = alto // 2
-
-    distancia = np.linalg.norm(
-        np.array([bx,by]) -
-        np.array([porteria_x,porteria_y])
+    distancia = np.sqrt(
+        (ancho - x)**2
+        +
+        (alto/2 - y)**2
     )
 
     xg = max(
         0,
-        1 - (distancia / 1200)
+        1 - (distancia / 900)
     )
 
-    return round(xg,2)
+    if tipo == "key_pass":
+        xg *= 1.8
+
+    elif tipo == "danger_pass":
+        xg *= 1.3
+
+    else:
+        xg *= 0.8
+
+    return round(
+        min(xg, 1),
+        3
+    )

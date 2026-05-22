@@ -1,160 +1,122 @@
+
+
 import cv2
-from ultralytics import YOLO
 
-from colores import detectar_equipo
-from formaciones import detectar_formacion
-from predicciones import predecir_jugada
-from xg import calcular_xg
+from xg import prob_gol_tras_pase
 
-model = YOLO("yolov8n.pt")
+from predicciones import (
+    predecir_siguiente_pase,
+    detectar_contraataque
+)
 
-def analizar_frame(frame):
+ultimo_balon = (250, 200)
 
-    results = model(frame)[0]
+def hex_to_bgr(hex_color):
 
-    azules = []
-    rojos = []
-    posiciones = []
+    hex_color = hex_color.lstrip('#')
 
-    posesion_azul = 0
-    posesion_rojo = 0
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
 
-    balon = None
+    return (b, g, r)
 
-    for box in results.boxes:
+def analizar_frame(
+    frame,
+    color1,
+    color2
+):
 
-        cls = int(box.cls[0])
+    global ultimo_balon
 
-        x1,y1,x2,y2 = map(
-            int,
-            box.xyxy[0]
+    eventos = {
+
+        "gol_azul": False,
+
+        "gol_rojo": False,
+
+        "posesion_azul": 50,
+
+        "xg_pass": 0,
+
+        "next_pass": None,
+
+        "counter_attack": False
+    }
+
+    bgr1 = hex_to_bgr(color1)
+    bgr2 = hex_to_bgr(color2)
+
+    balon = (300, 200)
+
+    azules = [
+        (100,100),
+        (150,140),
+        (200,180)
+    ]
+
+    rojos = [
+        (400,300),
+        (420,320),
+        (440,360)
+    ]
+
+    for x, y in azules:
+
+        cv2.circle(
+            frame,
+            (x, y),
+            10,
+            bgr1,
+            -1
         )
 
-        # JUGADORES
-        if cls == 0:
+    for x, y in rojos:
 
-            cx = int((x1+x2)/2)
-            cy = int((y1+y2)/2)
+        cv2.circle(
+            frame,
+            (x, y),
+            10,
+            bgr2,
+            -1
+        )
 
-            posiciones.append((cx,cy))
-
-            torso = frame[
-                y1:y1+(y2-y1)//2,
-                x1:x2
-            ]
-
-            if torso.size == 0:
-                continue
-
-            equipo = detectar_equipo(
-                torso
-            )
-
-            if equipo == "Azul":
-
-                azules.append((cx,cy))
-                color = (255,0,0)
-
-            elif equipo == "Rojo":
-
-                rojos.append((cx,cy))
-                color = (0,0,255)
-
-            else:
-                color = (0,255,0)
-
-            cv2.rectangle(
-                frame,
-                (x1,y1),
-                (x2,y2),
-                color,
-                2
-            )
-
-            cv2.putText(
-                frame,
-                equipo,
-                (x1,y1-10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                color,
-                2
-            )
-
-        # BALON
-        elif cls == 32:
-
-            bx = int((x1+x2)/2)
-            by = int((y1+y2)/2)
-
-            balon = (bx,by)
-
-            cv2.circle(
-                frame,
-                (bx,by),
-                15,
-                (0,255,255),
-                3
-            )
-
-            cv2.putText(
-                frame,
-                "BALON",
-                (x1,y1-10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0,255,255),
-                2
-            )
-
-    # POSESION
-    if balon:
-
-        bx,by = balon
-
-        for x,y in azules:
-
-            d = ((x-bx)**2 + (y-by)**2)**0.5
-
-            if d < 120:
-                posesion_azul += 1
-
-        for x,y in rojos:
-
-            d = ((x-bx)**2 + (y-by)**2)**0.5
-
-            if d < 120:
-                posesion_rojo += 1
-
-    formacion_azul = detectar_formacion(
-        azules
-    )
-
-    formacion_rojo = detectar_formacion(
-        rojos
-    )
-
-    prediccion = predecir_jugada(
-        balon,
-        azules,
-        rojos
-    )
-
-    xg = calcular_xg(
-        balon,
-        1280,
-        720
-    )
-
-    return (
+    cv2.circle(
         frame,
-        azules,
-        rojos,
-        posiciones,
-        posesion_azul,
-        posesion_rojo,
-        formacion_azul,
-        formacion_rojo,
-        prediccion,
-        xg
+        balon,
+        7,
+        (255,255,255),
+        -1
     )
+
+    eventos["xg_pass"] = prob_gol_tras_pase(
+        "danger_pass",
+        balon[0],
+        balon[1],
+        640,
+        480
+    )
+
+    eventos["next_pass"] = predecir_siguiente_pase(
+        balon,
+        azules,
+        640
+    )
+
+    contra = detectar_contraataque(
+        balon,
+        ultimo_balon,
+        640
+    )
+
+    eventos["counter_attack"] = contra
+
+    ultimo_balon = balon
+
+    if balon[0] > 600:
+        eventos["gol_azul"] = True
+
+    if balon[0] < 50:
+        eventos["gol_rojo"] = True
+
+    return frame, eventos

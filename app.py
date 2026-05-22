@@ -1,165 +1,202 @@
+
+
 import streamlit as st
 import cv2
-import tempfile
 
 from detector import analizar_frame
-from tactica import analizar
-from heatmap import (
-    actualizar_heatmap,
-    obtener_heatmap
+
+
+if "running" not in st.session_state:
+    st.session_state.running = False
+
+if "score_blue" not in st.session_state:
+    st.session_state.score_blue = 0
+
+if "score_red" not in st.session_state:
+    st.session_state.score_red = 0
+
+if "pos_blue" not in st.session_state:
+    st.session_state.pos_blue = 50
+
+if "xg_pass" not in st.session_state:
+    st.session_state.xg_pass = 0
+
+if "next_pass" not in st.session_state:
+    st.session_state.next_pass = None
+
+if "counter_attack" not in st.session_state:
+    st.session_state.counter_attack = False
+
+
+
+st.title("⚽ Tactical AI Elite")
+
+
+st.subheader("🎨 Configuración de Equipos")
+
+color_equipo1 = st.color_picker(
+    "Color Equipo 1",
+    "#0000FF"
 )
 
-st.set_page_config(
-    page_title="Tactical AI Elite",
-    layout="wide"
+color_equipo2 = st.color_picker(
+    "Color Equipo 2",
+    "#FF0000"
 )
 
-with open("style.css") as f:
 
-    st.markdown(
-        f"<style>{f.read()}</style>",
-        unsafe_allow_html=True
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    if st.button("▶️ Iniciar"):
+        st.session_state.running = True
+
+with col2:
+    if st.button("⏸ Pausar"):
+        st.session_state.running = False
+
+with col3:
+    if st.button("🔄 Reset"):
+        st.session_state.running = False
+
+        st.session_state.score_blue = 0
+        st.session_state.score_red = 0
+
+        st.session_state.pos_blue = 50
+
+        st.session_state.xg_pass = 0
+
+        st.session_state.next_pass = None
+
+        st.session_state.counter_attack = False
+
+
+
+st.subheader("⚽ Marcador")
+
+st.write(
+    f"🔵 Azul: {st.session_state.score_blue}"
+)
+
+st.write(
+    f"🔴 Rojo: {st.session_state.score_red}"
+)
+
+
+
+st.subheader("📊 Posesión")
+
+st.progress(
+    st.session_state.pos_blue / 100
+)
+
+st.write(
+    f"🔵 Azul: {st.session_state.pos_blue:.1f}%"
+)
+
+st.write(
+    f"🔴 Rojo: {100 - st.session_state.pos_blue:.1f}%"
+)
+
+
+
+st.subheader("🎯 xG tras pase")
+
+st.metric(
+    "xG",
+    st.session_state.xg_pass
+)
+
+
+
+st.subheader("🧠 Predicción siguiente pase")
+
+if st.session_state.next_pass is not None:
+
+    st.success(
+        f"Jugador probable: #{st.session_state.next_pass}"
     )
 
-st.title("Tactical AI Elite")
+else:
+
+    st.warning("Sin predicción")
+
+
+
+st.subheader("⚡ Contraataque")
+
+if st.session_state.counter_attack:
+
+    st.error(
+        "⚡ CONTRAATAQUE DETECTADO"
+    )
+
+else:
+
+    st.success(
+        "Juego normal"
+    )
+
+
 
 video = st.file_uploader(
     "Sube un partido",
     type=["mp4"]
 )
 
-if video:
+frame_box = st.empty()
 
-    temp = tempfile.NamedTemporaryFile(
-        delete=False
-    )
 
-    temp.write(video.read())
 
-    cap = cv2.VideoCapture(
-        temp.name
-    )
+if video is not None and st.session_state.running:
 
-    c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
+    cap = cv2.VideoCapture(video.name)
 
-    total_box = c1.empty()
-    azul_box = c2.empty()
-    rojo_box = c3.empty()
-    posesion_box = c4.empty()
-    tactica_box = c5.empty()
-    formacion_box = c6.empty()
-    xg_box = c7.empty()
+    while cap.isOpened() and st.session_state.running:
 
-    frame_box = st.empty()
-
-    heatmap_box = st.empty()
-
-    while True:
-
-        ret,frame = cap.read()
+        ret, frame = cap.read()
 
         if not ret:
             break
 
-        frame = cv2.resize(
+        resultado, eventos = analizar_frame(
             frame,
-            (1280,720)
+            color_equipo1,
+            color_equipo2
         )
 
-        (
-            analizado,
-            azules,
-            rojos,
-            posiciones,
-            pa,
-            pr,
-            formacion_azul,
-            formacion_rojo,
-            prediccion,
-            xg
-        ) = analizar_frame(frame)
+        
+        if eventos.get("gol_azul"):
+            st.session_state.score_blue += 1
 
-        mensaje,presion_a,presion_r = analizar(
-            azules,
-            rojos
+        if eventos.get("gol_rojo"):
+            st.session_state.score_red += 1
+
+        
+        st.session_state.pos_blue = eventos.get(
+            "posesion_azul",
+            50
         )
 
-        total = len(azules) + len(rojos)
-
-        if pa > pr:
-            posesion = "Azul"
-        elif pr > pa:
-            posesion = "Rojo"
-        else:
-            posesion = "Dividida"
-
-        total_box.metric(
-            "Jugadores",
-            total
+        
+        st.session_state.xg_pass = eventos.get(
+            "xg_pass",
+            0
         )
 
-        azul_box.metric(
-            "Azules",
-            len(azules)
+        
+        st.session_state.next_pass = eventos.get(
+            "next_pass",
+            None
         )
 
-        rojo_box.metric(
-            "Rojos",
-            len(rojos)
+        
+        st.session_state.counter_attack = eventos.get(
+            "counter_attack",
+            False
         )
-
-        posesion_box.metric(
-            "Posesion",
-            posesion
-        )
-
-        tactica_box.metric(
-            "Presion",
-            f"A:{presion_a} | R:{presion_r}"
-        )
-
-        formacion_box.metric(
-            "Formaciones",
-            f"A:{formacion_azul} | R:{formacion_rojo}"
-        )
-
-        xg_box.metric(
-            "xG",
-            xg
-        )
-
-        cv2.putText(
-            analizado,
-            mensaje,
-            (20,40),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (255,255,255),
-            3
-        )
-
-        cv2.putText(
-            analizado,
-            prediccion,
-            (20,80),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0,255,255),
-            3
-        )
-
-        actualizar_heatmap(
-            posiciones
-        )
-
-        mapa = obtener_heatmap()
 
         frame_box.image(
-            analizado,
-            channels="BGR"
-        )
-
-        heatmap_box.image(
-            mapa,
+            resultado,
             channels="BGR"
         )
