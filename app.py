@@ -43,6 +43,15 @@ color_equipo2 = st.color_picker(
     "#FF0000"
 )
 
+nombre_equipo1 = st.text_input(
+    "Nombre Equipo 1",
+    "Mi Equipo"
+)
+
+nombre_equipo2 = st.text_input(
+    "Nombre Equipo 2",
+    "Rival"
+)
 
 modo = st.selectbox(
     "Modo",
