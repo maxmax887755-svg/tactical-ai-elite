@@ -83,11 +83,11 @@ with col3:
 st.subheader("⚽ Marcador")
 
 st.write(
-    f"🔵 Azul: {st.session_state.score_blue}"
+    f"{nombre_equipo1}: {st.session_state.score_blue}"
 )
 
 st.write(
-    f"🔴 Rojo: {st.session_state.score_red}"
+    f"{nombre_equipo2}: {st.session_state.score_red}"
 )
 
 
@@ -98,11 +98,11 @@ st.progress(
 )
 
 st.write(
-    f"🔵 Azul: {st.session_state.pos_blue:.1f}%"
+    f"{nombre_equipo1}: {st.session_state.pos_blue:.1f}%"
 )
 
 st.write(
-    f"🔴 Rojo: {100 - st.session_state.pos_blue:.1f}%"
+    f"{nombre_equipo2}: {100 - st.session_state.pos_blue:.1f}%"
 )
 
 
