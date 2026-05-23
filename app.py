@@ -271,3 +271,86 @@ if modo == "Camara":
             resultado,
             channels="BGR"
         )
+ 
+
+with st.expander("📖 Manual de uso"):
+
+    st.markdown("""
+### Cómo usar Tactical AI Elite
+
+1. Selecciona el color de tu equipo.
+2. Selecciona el color del rival.
+3. Elige Video MP4 o Cámara.
+4. Pulsa Iniciar.
+5. Sube un video o toma una captura.
+6. Observa:
+   - Marcador
+   - Posesión
+   - xG
+   - Predicción de pase
+   - Contraataques
+""")
+
+
+
+st.subheader("⭐ Opiniones")
+
+if "opiniones" not in st.session_state:
+    st.session_state.opiniones = []
+
+nombre = st.text_input("Nombre")
+
+estrellas = st.slider(
+    "Calificación",
+    1,
+    5,
+    5
+)
+
+comentario = st.text_area(
+    "Comentario"
+)
+
+if st.button("Enviar opinión"):
+
+    if comentario.strip() != "":
+
+        st.session_state.opiniones.append({
+            "nombre": nombre,
+            "estrellas": estrellas,
+            "comentario": comentario
+        })
+
+        st.success("Opinión enviada")
+
+st.subheader("📝 Opiniones recibidas")
+
+for opinion in reversed(st.session_state.opiniones):
+
+    estrellas_txt = "⭐" * opinion["estrellas"]
+
+    st.markdown(
+        f"""
+**{opinion['nombre']}**
+
+{estrellas_txt}
+
+{opinion['comentario']}
+"""
+    )
+
+    st.divider()
+
+
+
+st.markdown(
+    """
+    <div style='text-align:center;
+                font-size:12px;
+                color:gray;
+                margin-top:30px;'>
+        Hecho por MAX CO INDUSTRIAS
+    </div>
+    """,
+    unsafe_allow_html=True
+)
